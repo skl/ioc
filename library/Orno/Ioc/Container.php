@@ -24,20 +24,20 @@ class Container implements ArrayAccess
      * we will handle dependencies at the time it is requested
      *
      * @param  string $alias
-     * @param  mixed  $callable
+     * @param  mixed  $concrete
      * @return void
      */
-    public function register($alias, $callable = null)
+    public function register($alias, $concrete = null)
     {
-        // if $callable is null we assume the $alias is a class name that
+        // if $concrete is null we assume the $alias is a class name that
         // needs to be registered
-        if (is_null($callable)) {
-            $callable = $alias;
+        if (is_null($concrete)) {
+            $concrete = $alias;
         }
 
-        // simply store whatever $callable is in the container and resolve it
+        // simply store whatever $concrete is in the container and resolve it
         // when it is requested
-        $this->values[$alias] = $callable;
+        $this->values[$alias] = $concrete;
     }
 
     /**
@@ -67,7 +67,7 @@ class Container implements ArrayAccess
      * @todo rewrite this with use of reflection and doc block parsing to resolve
      * dependencies if they don't exist in the container
      */
-    public function build($callable)
+    public function build($concrete)
     {
 
     }
