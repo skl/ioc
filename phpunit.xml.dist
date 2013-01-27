@@ -12,7 +12,7 @@
 >
 
     <testsuites>
-        <testsuite name="Spry Test Suite">
+        <testsuite name="Orno IOC Test Suite">
             <directory>./tests/</directory>
         </testsuite>
     </testsuites>
