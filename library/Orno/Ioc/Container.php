@@ -87,6 +87,9 @@ class Container implements ArrayAccess
             $this->shared[$alias] = $object;
         }
 
+        // TODO: allow for passing of a fully qualified namespace\class that is not
+        // yet registered with the container, configure it and cache it
+
         return $object;
     }
 
