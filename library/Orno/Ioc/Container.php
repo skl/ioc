@@ -1,6 +1,6 @@
 <?php namespace Orno\Ioc;
 
-use Closure, ArrayAccess;
+use Closure, ArrayAccess, ReflectionClass;
 
 class Container implements ArrayAccess
 {
