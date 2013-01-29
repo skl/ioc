@@ -147,7 +147,7 @@ class Container implements ArrayAccess
 
             if (! is_null($dependency)) {
                 // if the type hint is a class we just resolve it
-                $dependencies[] = $this->resolve($dependency);
+                $dependencies[] = $this->resolve($dependency->getName());
             } else {
                 // if the type hint is not a class, it could be an interface so
                 // we have a last ditch attempt to resolve a class from the
