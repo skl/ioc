@@ -12,6 +12,13 @@ class Container implements ArrayAccess
     protected $values = [];
 
     /**
+     * Shared instances
+     *
+     * @var array
+     */
+    protected $shared = [];
+
+    /**
      * @param array $values
      */
     public function __construct(array $values = [])
@@ -23,11 +30,12 @@ class Container implements ArrayAccess
      * Register a class name, closure or fully configured item with the container,
      * we will handle dependencies at the time it is requested
      *
-     * @param  string $alias
-     * @param  mixed  $concrete
+     * @param  string  $alias
+     * @param  mixed   $concrete
+     * @param  boolean $shared
      * @return void
      */
-    public function register($alias, $concrete = null)
+    public function register($alias, $concrete = null, $shared = false)
     {
         // if $concrete is null we assume the $alias is a class name that
         // needs to be registered
@@ -35,9 +43,15 @@ class Container implements ArrayAccess
             $concrete = $alias;
         }
 
+        // if $concrete is a pre configured object it is automatically shared
+        if (is_object($concrete)) {
+            $this->shared[$alias] = $concrete;
+        }
+
         // simply store whatever $concrete is in the container and resolve it
         // when it is requested
         $this->values[$alias] = $concrete;
+        $this->values[$alias]['shared'] = $shared === true ? true : false;
     }
 
     /**
@@ -49,27 +63,115 @@ class Container implements ArrayAccess
     public function resolve($alias)
     {
         if (! array_key_exists($alias, $this->values)) {
-            throw new \InvalidArgumentException('Alias "' . $alias .'" is not registered');
+            throw new \InvalidArgumentException(
+                'Alias "' . $alias .'" is not registered'
+            );
+        }
+
+        // if the item is currently stored as a shared item we just return it
+        if (array_key_exists($alias, $this->shared)) {
+            return $this->shared[$alias];
         }
 
         // if the item is a closure or pre-configured object we just return it
-        if ($this->values[$alias] instanceof Closure or is_object($alias)) {
-            return is_object($alias) ? $alias : $alias();
+        if ($this->values[$alias] instanceof Closure) {
+            // TODO: sharing for closures!!
+            return $this->values[$alias]();
         }
 
         // if we've got this far we need to build the object and resolve it's dependencies
-        return $this->build($this->values[$alias]);
+        $object = $this->build($alias, $this->values[$alias]);
+
+        // do we need to save it as a shared item?
+        if ($this->values[$alias]['shared'] === true) {
+            $this->shared[$alias] = $object;
+        }
+
+        return $object;
     }
 
     /**
-     * Build an object and inject it's dependencies
+     * Takes the $concrete and instantiates it with and dependencies injected
+     * into it's constructor
      *
-     * @todo rewrite this with use of reflection and doc block parsing to resolve
-     * dependencies if they don't exist in the container
+     * @param  string $alias
+     * @param  string $concrete
+     * @return object
      */
-    public function build($concrete)
+    public function build($alias, $concrete)
     {
+        $reflection = new ReflectionClass($concrete);
 
+        // is concrete an instantiable object?
+        if (! $reflection->isInstantiable()) {
+            throw new \InvalidArgumentException(
+                'Unable to instantiate object attached to alias: ' . $alias
+            );
+        }
+
+        $construct = $reflection->getConstructor();
+
+        // if the $concrete has no constructor we just return the object
+        if (is_null($construct)) {
+            return new $concrete;
+        }
+
+        // use reflection to get the contructors doc block and parameters, these
+        // are passed to the dependencies method to work a little magic and resolve
+        // all of our dependencies and implementations
+        $docBlock = $contruct->getDocComment();
+        $params = $construct->getParameters();
+
+        $dependencies = $this->dependencies($params, $docBlock);
+
+        return $reflection->newInstanceArgs($dependencies);
+    }
+
+    /**
+     * Recursively resolve dependencies, and dependencies of dependencies etc.. etc..
+     * Will first check if the parameters type hint is a class and resolve that, if
+     * not it will attempt to resolve an implementation from the parameters annotation
+     *
+     * @param  array  $params
+     * @param  string $docBlock
+     * @return array
+     */
+    public function dependencies($params, $docBlock)
+    {
+        $dependencies = [];
+
+        foreach ($params as $param) {
+            $dependency = $param->getClass();
+
+            // TODO: tidy this up, too fucking messy.
+
+            if (! is_null($dependency)) {
+                // if the type hint is a class we just resolve it
+                $dependencies[] = $this->resolve($dependency);
+            } else {
+                // if the type hint is not a class, it could be an interface so
+                // we have a last ditch attempt to resolve a class from the
+                // parameters @var annotation
+                $matches = [];
+
+                $results = preg_match_all(
+                    '/@param[\t\s]*(?P<type>[^\t\s]*)[\t\s]*\$(?P<name>[^\t\s]*)/sim',
+                    $docBlock,
+                    $matches
+                );
+
+                if ($results > 0) {
+                    foreach ($matches['name'] as $key => $val) {
+                        if ($val === $param->getName()) {
+                            $dependencies[] $this->resolve($matches['type'][$key]);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        return $dependencies;
     }
 
     /**
