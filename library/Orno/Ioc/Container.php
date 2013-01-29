@@ -154,7 +154,7 @@ class Container implements ArrayAccess
             } else {
                 // if the type hint is not a class, it could be an interface so
                 // we have a last ditch attempt to resolve a class from the
-                // parameters @var annotation
+                // parameters @param annotation
                 $matches = [];
 
                 $results = preg_match_all(
