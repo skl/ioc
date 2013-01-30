@@ -51,7 +51,7 @@ class Container implements ArrayAccess
         // simply store whatever $concrete is in the container and resolve it
         // when it is requested
         $this->values[$alias] = $concrete;
-        $this->values[$alias]['shared'] = $shared === true ? true : false;
+        $this->values[$alias]['shared'] = $shared === true ?: false;
     }
 
     /**
